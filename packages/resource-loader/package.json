@@ -1,10 +1,10 @@
 {
-  "name": "@pixi/loaders",
+  "name": "@pixi/resource-loader",
   "version": "6.1.0-rc.4",
-  "main": "dist/cjs/loaders.js",
-  "module": "dist/esm/loaders.js",
-  "bundle": "dist/browser/loaders.js",
-  "description": "Load assets and resources",
+  "main": "dist/cjs/resource-loader.js",
+  "module": "dist/esm/resource-loader.js",
+  "bundle": "dist/browser/resource-loader.js",
+  "description": "A generic asset loader, made with web games in mind. Cloned from @englercj",
   "author": "Mat Groves",
   "contributors": [
     "Matt Karl <matt@mattkarl.com>"
@@ -23,14 +23,5 @@
     "lib",
     "dist",
     "*.d.ts"
-  ],
-  "dependencies": {
-    "resource-loader": "^3.0.1"
-  },
-  "peerDependencies": {
-    "@pixi/constants": "6.1.0-rc.4",
-    "@pixi/core": "6.1.0-rc.4",
-    "@pixi/resource-loader": "6.1.0-rc.4",
-    "@pixi/utils": "6.1.0-rc.4"
-  }
+  ]
 }

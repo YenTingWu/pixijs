@@ -23,6 +23,7 @@ import { NoiseFilter } from '@pixi/filter-noise';
 import '@pixi/mixin-cache-as-bitmap';
 import '@pixi/mixin-get-child-by-name';
 import '@pixi/mixin-get-global-position';
+import '@pixi/resource-loader';
 
 // Install renderer plugins
 Renderer.registerPlugin('accessibility', AccessibilityManager);
