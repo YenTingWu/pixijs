@@ -1,13 +1,14 @@
 import { Signal } from './Signal';
 import { parseUri } from './parseUri';
-import * as async from './async';
 import { Resource } from './Resource';
-import {AsyncQueue} from "./async";
-import {Dict} from "@pixi/utils";
+import { AsyncQueue, eachSeries, queue } from './async';
+import { Dict } from '@pixi/utils';
 
 // some constants
 const MAX_PROGRESS = 100;
 const rgxExtractUrlHash = /(#[\w-]+)?$/;
+
+export type ILoaderMiddleware = (resource: Resource, next?: (...args: any[]) => void) => void;
 
 export interface IResourceFactory {
     /** @function
@@ -19,7 +20,7 @@ export interface IResourceFactory {
      * @return {this} Returns itself.
      */
     add(name: string, url: string, options?: IAddOptions, callback?: Resource.OnCompleteSignal): this;
-    /*@function
+    /** @function
      * @variation 2
      * @param {string} name - The name of the resource to load.
      * @param {string} url - The url for this resource, relative to the baseUrl of this loader.
@@ -95,13 +96,15 @@ export interface IAddOptions {
     metadata?: Resource.IMetadata;
 }
 
-export interface Loader extends GlobalMixins.Loader { }
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface Loader extends GlobalMixins.Loader {}
 /**
  * Manages the state and loading of multiple resources to load.
  *
  * @class
  */
-export class Loader {
+export class Loader
+{
     /**
      * The base url for all resources loaded by this loader.
      *
@@ -156,7 +159,7 @@ export class Loader {
      * @private
      * @member {function[]}
      */
-    _beforeMiddleware: Array<Function> = [];
+    _beforeMiddleware: Array<ILoaderMiddleware> = [];
 
     /**
      * The middleware to run after loading each resource.
@@ -164,7 +167,7 @@ export class Loader {
      * @private
      * @member {function[]}
      */
-    _afterMiddleware: Array<Function> = [];
+    _afterMiddleware: Array<ILoaderMiddleware> = [];
 
     /**
      * The tracks the resources we are currently completing parsing for.
@@ -183,7 +186,7 @@ export class Loader {
      * @param {Function} d - The dequeue function
      * @return {undefined}
      */
-    _boundLoadResource = (r: Resource, d: Function) => this._loadResource(r, d);
+    _boundLoadResource = (r: Resource, d: () => void) => this._loadResource(r, d);
 
     /**
      * The resources waiting to be loaded.
@@ -249,7 +252,8 @@ export class Loader {
      * @param {string} [baseUrl=''] - The base url for all resources loaded by this loader.
      * @param {number} [concurrency=10] - The number of resources to load concurrently.
      */
-    constructor(baseUrl = '', concurrency = 10) {
+    constructor(baseUrl = '', concurrency = 10)
+    {
         this.baseUrl = baseUrl;
         this.progress = 0;
         this.loading = false;
@@ -258,7 +262,7 @@ export class Loader {
         this._afterMiddleware = [];
         this._resourcesParsing = [];
         this._boundLoadResource = (r, d) => this._loadResource(r, d);
-        this._queue = async.queue(this._boundLoadResource, concurrency);
+        this._queue = queue(this._boundLoadResource, concurrency);
         this._queue.pause();
         this.resources = {};
         this.onProgress = new Signal();
@@ -268,12 +272,14 @@ export class Loader {
         this.onComplete = new Signal();
 
         // Add default before middleware
-        for (let i = 0; i < Loader._defaultBeforeMiddleware.length; ++i) {
+        for (let i = 0; i < Loader._defaultBeforeMiddleware.length; ++i)
+        {
             this.pre(Loader._defaultBeforeMiddleware[i]);
         }
 
         // Add default after middleware
-        for (let i = 0; i < Loader._defaultAfterMiddleware.length; ++i) {
+        for (let i = 0; i < Loader._defaultAfterMiddleware.length; ++i)
+        {
             this.use(Loader._defaultAfterMiddleware[i]);
         }
     }
@@ -397,10 +403,13 @@ export class Loader {
      * @param {Resource.OnCompleteSignal} [callback] - Function to call when this specific resource completes loading.
      * @return {this} Returns itself.
      */
-    add(name: string, url?: string, options?: IAddOptions, callback?: Resource.OnCompleteSignal): this {
+    add(name: string, url?: string, options?: IAddOptions, callback?: Resource.OnCompleteSignal): this
+    {
         // special case of an array of objects or urls
-        if (Array.isArray(name)) {
-            for (let i = 0; i < name.length; ++i) {
+        if (Array.isArray(name))
+        {
+            for (let i = 0; i < name.length; ++i)
+            {
                 this.add((name as any)[i]);
             }
 
@@ -408,7 +417,8 @@ export class Loader {
         }
 
         // if an object is passed instead of params
-        if (typeof name === 'object') {
+        if (typeof name === 'object')
+        {
             options = name;
             callback = (url as any) || options.callback || options.onComplete;
             url = options.url;
@@ -416,30 +426,35 @@ export class Loader {
         }
 
         // case where no name is passed shift all args over by one.
-        if (typeof url !== 'string') {
+        if (typeof url !== 'string')
+        {
             callback = options as any;
             options = url;
             url = name;
         }
 
         // now that we shifted make sure we have a proper url.
-        if (typeof url !== 'string') {
+        if (typeof url !== 'string')
+        {
             throw new Error('No url passed to add resource to loader.');
         }
 
         // options are optional so people might pass a function and no options
-        if (typeof options === 'function') {
+        if (typeof options === 'function')
+        {
             callback = options;
             options = null;
         }
 
         // if loading already you can only add resources that have a parent.
-        if (this.loading && (!options || !options.parentResource)) {
+        if (this.loading && (!options || !options.parentResource))
+        {
             throw new Error('Cannot add resources while the loader is running.');
         }
 
         // check if resource already exists.
-        if (this.resources[name]) {
+        if (this.resources[name])
+        {
             throw new Error(`Resource named "${name}" already exists.`);
         }
 
@@ -449,17 +464,21 @@ export class Loader {
         // create the store the resource
         this.resources[name] = new Resource(name, url, options);
 
-        if (typeof callback === 'function') {
+        if (typeof callback === 'function')
+        {
             this.resources[name].onAfterMiddleware.once(callback);
         }
 
         // if actively loading, make sure to adjust progress chunks for that parent and its children
-        if (this.loading) {
+        if (this.loading)
+        {
             const parent = options.parentResource;
             const incompleteChildren = [];
 
-            for (let i = 0; i < parent.children.length; ++i) {
-                if (!parent.children[i].isComplete) {
+            for (let i = 0; i < parent.children.length; ++i)
+            {
+                if (!parent.children[i].isComplete)
+                {
                     incompleteChildren.push(parent.children[i]);
                 }
             }
@@ -470,7 +489,8 @@ export class Loader {
             parent.children.push(this.resources[name]);
             parent.progressChunk = eachChunk;
 
-            for (let i = 0; i < incompleteChildren.length; ++i) {
+            for (let i = 0; i < incompleteChildren.length; ++i)
+            {
                 incompleteChildren[i].progressChunk = eachChunk;
             }
 
@@ -492,7 +512,8 @@ export class Loader {
      * @param {function} fn - The middleware function to register.
      * @return {this} Returns itself.
      */
-    pre(fn: Function) {
+    pre(fn: ILoaderMiddleware)
+    {
         this._beforeMiddleware.push(fn);
 
         return this;
@@ -505,7 +526,8 @@ export class Loader {
      * @param {function} fn - The middleware function to register.
      * @return {this} Returns itself.
      */
-    use(fn: Function) {
+    use(fn: ILoaderMiddleware)
+    {
         this._afterMiddleware.push(fn);
 
         return this;
@@ -516,7 +538,8 @@ export class Loader {
      *
      * @return {this} Returns itself.
      */
-    reset() {
+    reset()
+    {
         this.progress = 0;
         this.loading = false;
 
@@ -524,14 +547,17 @@ export class Loader {
         this._queue.pause();
 
         // abort all resource loads
-        for (const k in this.resources) {
+        for (const k in this.resources)
+        {
             const res = this.resources[k];
 
-            if (res._onLoadBinding) {
+            if (res._onLoadBinding)
+            {
                 res._onLoadBinding.detach();
             }
 
-            if (res.isLoading) {
+            if (res.isLoading)
+            {
                 res.abort('loader reset');
             }
         }
@@ -547,27 +573,33 @@ export class Loader {
      * @param {function} [cb] - Optional callback that will be bound to the `complete` event.
      * @return {this} Returns itself.
      */
-    load(cb: Function): this {
+    load(cb?: Resource.OnCompleteSignal): this
+    {
         // register complete callback if they pass one
-        if (typeof cb === 'function') {
+        if (typeof cb === 'function')
+        {
             this.onComplete.once(cb);
         }
 
         // if the queue has already started we are done here
-        if (this.loading) {
+        if (this.loading)
+        {
             return this;
         }
 
-        if (this._queue.idle()) {
+        if (this._queue.idle())
+        {
             this._onStart();
             this._onComplete();
         }
-        else {
+        else
+        {
             // distribute progress chunks
             const numTasks = this._queue._tasks.length;
             const chunk = MAX_PROGRESS / numTasks;
 
-            for (let i = 0; i < this._queue._tasks.length; ++i) {
+            for (let i = 0; i < this._queue._tasks.length; ++i)
+            {
                 this._queue._tasks[i].data.progressChunk = chunk;
             }
 
@@ -587,11 +619,13 @@ export class Loader {
      * @member {number}
      * @default 10
      */
-    get concurrency() {
+    get concurrency()
+    {
         return this._queue.concurrency;
     }
     // eslint-disable-next-line require-jsdoc
-    set concurrency(concurrency) {
+    set concurrency(concurrency)
+    {
         this._queue.concurrency = concurrency;
     }
 
@@ -602,35 +636,42 @@ export class Loader {
      * @param {string} url - The url to prepare.
      * @return {string} The prepared url.
      */
-    _prepareUrl(url: string): string {
+    _prepareUrl(url: string): string
+    {
         const parsedUrl = parseUri(url, { strictMode: true });
         let result;
 
         // absolute url, just use it as is.
-        if (parsedUrl.protocol || !parsedUrl.path || url.indexOf('//') === 0) {
+        if (parsedUrl.protocol || !parsedUrl.path || url.indexOf('//') === 0)
+        {
             result = url;
         }
         // if baseUrl doesn't end in slash and url doesn't start with slash, then add a slash inbetween
         else if (this.baseUrl.length
             && this.baseUrl.lastIndexOf('/') !== this.baseUrl.length - 1
             && url.charAt(0) !== '/'
-        ) {
+        )
+        {
             result = `${this.baseUrl}/${url}`;
         }
-        else {
+        else
+        {
             result = this.baseUrl + url;
         }
 
         // if we need to add a default querystring, there is a bit more work
-        if (this.defaultQueryString) {
+        if (this.defaultQueryString)
+        {
             const hash = rgxExtractUrlHash.exec(result)[0];
 
             result = result.substr(0, result.length - hash.length);
 
-            if (result.indexOf('?') !== -1) {
+            if (result.indexOf('?') !== -1)
+            {
                 result += `&${this.defaultQueryString}`;
             }
-            else {
+            else
+            {
                 result += `?${this.defaultQueryString}`;
             }
 
@@ -647,24 +688,30 @@ export class Loader {
      * @param {Resource} resource - The resource to load.
      * @param {function} dequeue - The function to call when we need to dequeue this item.
      */
-    _loadResource(resource: Resource, dequeue: Function) {
+    _loadResource(resource: Resource, dequeue: () => void)
+    {
         resource._dequeue = dequeue;
 
         // run before middleware
-        async.eachSeries(
+        eachSeries(
             this._beforeMiddleware,
-            (fn, next) => {
-                fn.call(this, resource, () => {
+            (fn, next) =>
+            {
+                fn.call(this, resource, () =>
+                {
                     // if the before middleware marks the resource as complete,
                     // break and don't process any more before middleware
                     next(resource.isComplete ? {} : null);
                 });
             },
-            () => {
-                if (resource.isComplete) {
+            () =>
+            {
+                if (resource.isComplete)
+                {
                     this._onLoad(resource);
                 }
-                else {
+                else
+                {
                     resource._onLoadBinding = resource.onComplete.once(this._onLoad, this);
                     resource.load();
                 }
@@ -678,7 +725,8 @@ export class Loader {
      *
      * @private
      */
-    _onStart() {
+    _onStart()
+    {
         this.progress = 0;
         this.loading = true;
         this.onStart.dispatch(this);
@@ -689,7 +737,8 @@ export class Loader {
      *
      * @private
      */
-    _onComplete() {
+    _onComplete()
+    {
         this.progress = MAX_PROGRESS;
         this.loading = false;
         this.onComplete.dispatch(this, this.resources);
@@ -701,7 +750,8 @@ export class Loader {
      * @private
      * @param {Resource} resource - The resource that was loaded
      */
-    _onLoad(resource: Resource) {
+    _onLoad(resource: Resource)
+    {
         resource._onLoadBinding = null;
 
         // remove this resource from the async queue, and add it to our list of resources that are being parsed
@@ -709,28 +759,33 @@ export class Loader {
         resource._dequeue();
 
         // run all the after middleware for this resource
-        async.eachSeries(
+        eachSeries(
             this._afterMiddleware,
-            (fn, next) => {
+            (fn, next) =>
+            {
                 fn.call(this, resource, next);
             },
-            () => {
+            () =>
+            {
                 resource.onAfterMiddleware.dispatch(resource);
 
                 this.progress = Math.min(MAX_PROGRESS, this.progress + resource.progressChunk);
                 this.onProgress.dispatch(this, resource);
 
-                if (resource.error) {
+                if (resource.error)
+                {
                     this.onError.dispatch(resource.error, this, resource);
                 }
-                else {
+                else
+                {
                     this.onLoad.dispatch(this, resource);
                 }
 
                 this._resourcesParsing.splice(this._resourcesParsing.indexOf(resource), 1);
 
                 // do completion check
-                if (this._queue.idle() && this._resourcesParsing.length === 0) {
+                if (this._queue.idle() && this._resourcesParsing.length === 0)
+                {
                     this._onComplete();
                 }
             },
@@ -738,8 +793,8 @@ export class Loader {
         );
     }
 
-    static _defaultBeforeMiddleware: Array<Function> = [];
-    static _defaultAfterMiddleware: Array<Function> = [];
+    static _defaultBeforeMiddleware: Array<ILoaderMiddleware> = [];
+    static _defaultAfterMiddleware: Array<ILoaderMiddleware> = [];
 
     /**
      * Sets up a middleware function that will run *before* the
@@ -749,7 +804,8 @@ export class Loader {
      * @param {function} fn - The middleware function to register.
      * @return {Loader} Returns itself.
      */
-    static pre(fn: Function) {
+    static pre(fn: ILoaderMiddleware)
+    {
         Loader._defaultBeforeMiddleware.push(fn);
 
         return Loader;
@@ -763,7 +819,8 @@ export class Loader {
      * @param {function} fn - The middleware function to register.
      * @return {Loader} Returns itself.
      */
-    static use(fn: Function) {
+    static use(fn: ILoaderMiddleware)
+    {
         Loader._defaultAfterMiddleware.push(fn);
 
         return Loader;

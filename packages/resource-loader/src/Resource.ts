@@ -1,6 +1,6 @@
 import { parseUri } from './parseUri';
 import Signal from 'mini-signals';
-import {Dict} from "@pixi/utils";
+import { Dict } from '@pixi/utils';
 
 // tests if CORS is supported in XHR, if not we need to use XDR
 const useXdr = !!((window as any).XDomainRequest && !('withCredentials' in (new XMLHttpRequest())));
@@ -21,7 +21,8 @@ function _noop() { /* empty */ }
  *
  * @class
  */
-class Resource {
+class Resource
+{
     /**
      * The name of this resource.
      *
@@ -192,7 +193,7 @@ class Resource {
      * @private
      * @member {number}
      */
-    private _elementTimer: number = 0;
+    private _elementTimer = 0;
 
     /**
      * The `complete` function bound to this resource's context.
@@ -278,7 +279,8 @@ class Resource {
         metadata?: Resource.IMetadata;
     })
     {
-        if (typeof name !== 'string' || typeof url !== 'string') {
+        if (typeof name !== 'string' || typeof url !== 'string')
+        {
             throw new Error('Both name and url are required for constructing a resource.');
         }
 
@@ -482,7 +484,8 @@ class Resource {
      * @readonly
      * @member {boolean}
      */
-    get isDataUrl(): boolean {
+    get isDataUrl(): boolean
+    {
         return this._hasFlag(Resource.STATUS_FLAGS.DATA_URL);
     }
 
@@ -493,7 +496,8 @@ class Resource {
      * @readonly
      * @member {boolean}
      */
-    get isComplete(): boolean {
+    get isComplete(): boolean
+    {
         return this._hasFlag(Resource.STATUS_FLAGS.COMPLETE);
     }
 
@@ -504,7 +508,8 @@ class Resource {
      * @readonly
      * @member {boolean}
      */
-    get isLoading(): boolean {
+    get isLoading(): boolean
+    {
         return this._hasFlag(Resource.STATUS_FLAGS.LOADING);
     }
 
@@ -512,7 +517,8 @@ class Resource {
      * Marks the resource as complete.
      *
      */
-    complete(): void {
+    complete(): void
+    {
         this._clearEvents();
         this._finish();
     }
@@ -522,9 +528,11 @@ class Resource {
      *
      * @param {string} message - The message to use for the error
      */
-    abort(message: string): void {
+    abort(message: string): void
+    {
         // abort can be called multiple times, ignore subsequent calls.
-        if (this.error) {
+        if (this.error)
+        {
             return;
         }
 
@@ -535,20 +543,26 @@ class Resource {
         this._clearEvents();
 
         // abort the actual loading
-        if (this.xhr) {
+        if (this.xhr)
+        {
             this.xhr.abort();
         }
-        else if (this.xdr) {
+        else if (this.xdr)
+        {
             this.xdr.abort();
         }
-        else if (this.data) {
+        else if (this.data)
+        {
             // single source
-            if (this.data.src) {
+            if (this.data.src)
+            {
                 this.data.src = Resource.EMPTY_GIF;
             }
             // multi-source
-            else {
-                while (this.data.firstChild) {
+            else
+            {
+                while (this.data.firstChild)
+                {
                     this.data.removeChild(this.data.firstChild);
                 }
             }
@@ -563,19 +577,24 @@ class Resource {
      *
      * @param {Resource.OnCompleteSignal} [cb] - Optional callback to call once the resource is loaded.
      */
-    load(cb?: Resource.OnCompleteSignal): void {
-        if (this.isLoading) {
+    load(cb?: Resource.OnCompleteSignal): void
+    {
+        if (this.isLoading)
+        {
             return;
         }
 
-        if (this.isComplete) {
-            if (cb) {
+        if (this.isComplete)
+        {
+            if (cb)
+            {
                 setTimeout(() => cb(this), 1);
             }
 
             return;
         }
-        else if (cb) {
+        else if (cb)
+        {
             this.onComplete.once(cb);
         }
 
@@ -584,11 +603,13 @@ class Resource {
         this.onStart.dispatch(this);
 
         // if unset, determine the value
-        if (this.crossOrigin === false || typeof this.crossOrigin !== 'string') {
+        if (this.crossOrigin === false || typeof this.crossOrigin !== 'string')
+        {
             this.crossOrigin = this._determineCrossOrigin(this.url);
         }
 
-        switch (this.loadType) {
+        switch (this.loadType)
+        {
             case Resource.LOAD_TYPE.IMAGE:
                 this.type = Resource.TYPE.IMAGE;
                 this._loadElement('image');
@@ -607,10 +628,12 @@ class Resource {
             case Resource.LOAD_TYPE.XHR:
                 /* falls through */
             default:
-                if (useXdr && this.crossOrigin) {
+                if (useXdr && this.crossOrigin)
+                {
                     this._loadXdr();
                 }
-                else {
+                else
+                {
                     this._loadXhr();
                 }
                 break;
@@ -624,7 +647,8 @@ class Resource {
      * @param {number} flag - The flag to check.
      * @return {boolean} True if the flag is set.
      */
-    _hasFlag(flag: number): boolean {
+    _hasFlag(flag: number): boolean
+    {
         return (this._flags & flag) !== 0;
     }
 
@@ -635,7 +659,8 @@ class Resource {
      * @param {number} flag - The flag to (un)set.
      * @param {boolean} value - Whether to set or (un)set the flag.
      */
-    _setFlag(flag: number, value: boolean) {
+    _setFlag(flag: number, value: boolean)
+    {
         this._flags = value ? (this._flags | flag) : (this._flags & ~flag);
     }
 
@@ -644,25 +669,30 @@ class Resource {
      *
      * @private
      */
-    _clearEvents() {
+    _clearEvents()
+    {
         clearTimeout(this._elementTimer);
 
-        if (this.data && this.data.removeEventListener) {
+        if (this.data && this.data.removeEventListener)
+        {
             this.data.removeEventListener('error', this._boundOnError, false);
             this.data.removeEventListener('load', this._boundComplete, false);
             this.data.removeEventListener('progress', this._boundOnProgress, false);
             this.data.removeEventListener('canplaythrough', this._boundComplete, false);
         }
 
-        if (this.xhr) {
-            if (this.xhr.removeEventListener) {
+        if (this.xhr)
+        {
+            if (this.xhr.removeEventListener)
+            {
                 this.xhr.removeEventListener('error', this._boundXhrOnError, false);
                 this.xhr.removeEventListener('timeout', this._boundXhrOnTimeout, false);
                 this.xhr.removeEventListener('abort', this._boundXhrOnAbort, false);
                 this.xhr.removeEventListener('progress', this._boundOnProgress, false);
                 this.xhr.removeEventListener('load', this._boundXhrOnLoad, false);
             }
-            else {
+            else
+            {
                 this.xhr.onerror = null;
                 this.xhr.ontimeout = null;
                 this.xhr.onprogress = null;
@@ -676,8 +706,10 @@ class Resource {
      *
      * @private
      */
-    _finish() {
-        if (this.isComplete) {
+    _finish()
+    {
+        if (this.isComplete)
+        {
             throw new Error('Complete called again for an already completed resource.');
         }
 
@@ -694,22 +726,28 @@ class Resource {
      * @private
      * @param {string} type - The type of element to use.
      */
-    _loadElement(type: string) {
-        if (this.metadata.loadElement) {
+    _loadElement(type: string)
+    {
+        if (this.metadata.loadElement)
+        {
             this.data = this.metadata.loadElement;
         }
-        else if (type === 'image' && typeof window.Image !== 'undefined') {
+        else if (type === 'image' && typeof window.Image !== 'undefined')
+        {
             this.data = new Image();
         }
-        else {
+        else
+        {
             this.data = document.createElement(type);
         }
 
-        if (this.crossOrigin) {
+        if (this.crossOrigin)
+        {
             this.data.crossOrigin = this.crossOrigin;
         }
 
-        if (!this.metadata.skipSource) {
+        if (!this.metadata.skipSource)
+        {
             this.data.src = this.url;
         }
 
@@ -717,7 +755,8 @@ class Resource {
         this.data.addEventListener('load', this._boundComplete, false);
         this.data.addEventListener('progress', this._boundOnProgress, false);
 
-        if (this.timeout) {
+        if (this.timeout)
+        {
             this._elementTimer = setTimeout(this._boundOnTimeout, this.timeout) as any;
         }
     }
@@ -729,42 +768,53 @@ class Resource {
      * @private
      * @param {string} type - The type of element to use.
      */
-    _loadSourceElement(type: string) {
-        if (this.metadata.loadElement) {
+    _loadSourceElement(type: string)
+    {
+        if (this.metadata.loadElement)
+        {
             this.data = this.metadata.loadElement;
         }
-        else if (type === 'audio' && typeof window.Audio !== 'undefined') {
+        else if (type === 'audio' && typeof window.Audio !== 'undefined')
+        {
             this.data = new Audio();
         }
-        else {
+        else
+        {
             this.data = document.createElement(type);
         }
 
-        if (this.data === null) {
+        if (this.data === null)
+        {
             this.abort(`Unsupported element: ${type}`);
 
             return;
         }
 
-        if (this.crossOrigin) {
+        if (this.crossOrigin)
+        {
             this.data.crossOrigin = this.crossOrigin;
         }
 
-        if (!this.metadata.skipSource) {
+        if (!this.metadata.skipSource)
+        {
             // support for CocoonJS Canvas+ runtime, lacks document.createElement('source')
-            if ((navigator as any).isCocoonJS) {
+            if ((navigator as any).isCocoonJS)
+            {
                 this.data.src = Array.isArray(this.url) ? this.url[0] : this.url;
             }
-            else if (Array.isArray(this.url)) {
+            else if (Array.isArray(this.url))
+            {
                 const mimeTypes = this.metadata.mimeType;
 
-                for (let i = 0; i < this.url.length; ++i) {
+                for (let i = 0; i < this.url.length; ++i)
+                {
                     this.data.appendChild(
                         this._createSource(type, this.url[i], Array.isArray(mimeTypes) ? mimeTypes[i] : mimeTypes)
                     );
                 }
             }
-            else {
+            else
+            {
                 const mimeTypes = this.metadata.mimeType;
 
                 this.data.appendChild(
@@ -780,7 +830,8 @@ class Resource {
 
         this.data.load();
 
-        if (this.timeout) {
+        if (this.timeout)
+        {
             this._elementTimer = setTimeout(this._boundOnTimeout, this.timeout) as any;
         }
     }
@@ -790,9 +841,11 @@ class Resource {
      *
      * @private
      */
-    _loadXhr() {
+    _loadXhr()
+    {
         // if unset, determine the value
-        if (typeof this.xhrType !== 'string') {
+        if (typeof this.xhrType !== 'string')
+        {
             this.xhrType = this._determineXhrType();
         }
 
@@ -805,10 +858,12 @@ class Resource {
 
         // load json as text and parse it ourselves. We do this because some browsers
         // *cough* safari *cough* can't deal with it.
-        if (this.xhrType === Resource.XHR_RESPONSE_TYPE.JSON || this.xhrType === Resource.XHR_RESPONSE_TYPE.DOCUMENT) {
+        if (this.xhrType === Resource.XHR_RESPONSE_TYPE.JSON || this.xhrType === Resource.XHR_RESPONSE_TYPE.DOCUMENT)
+        {
             xhr.responseType = Resource.XHR_RESPONSE_TYPE.TEXT;
         }
-        else {
+        else
+        {
             xhr.responseType = this.xhrType as any;
         }
 
@@ -826,9 +881,11 @@ class Resource {
      *
      * @private
      */
-    _loadXdr() {
+    _loadXdr()
+    {
         // if unset, determine the value
-        if (typeof this.xhrType !== 'string') {
+        if (typeof this.xhrType !== 'string')
+        {
             this.xhrType = this._determineXhrType();
         }
 
@@ -862,8 +919,10 @@ class Resource {
      * @param {string} [mime] - The mime type of the video
      * @return {HTMLSourceElement} The source element.
      */
-    _createSource(type: string, url: string, mime: string) {
-        if (!mime) {
+    _createSource(type: string, url: string, mime: string)
+    {
+        if (!mime)
+        {
             mime = `${type}/${this._getExtension(url)}`;
         }
 
@@ -881,7 +940,8 @@ class Resource {
      * @param {Event} event - The error event from the element that emits it.
      * @private
      */
-    _onError(event: Event) {
+    _onError(event: Event)
+    {
         this.abort(`Failed to load element using: ${(event.target as any).nodeName}`);
     }
 
@@ -891,8 +951,10 @@ class Resource {
      * @private
      * @param {XMLHttpRequestProgressEvent|Event} event - Progress event.
      */
-    _onProgress(event: ProgressEvent) {
-        if (event && event.lengthComputable) {
+    _onProgress(event: ProgressEvent)
+    {
+        if (event && event.lengthComputable)
+        {
             this.onProgress.dispatch(this, event.loaded / event.total);
         }
     }
@@ -902,7 +964,8 @@ class Resource {
      *
      * @private
      */
-    _onTimeout() {
+    _onTimeout()
+    {
         this.abort(`Load timed out.`);
     }
 
@@ -911,7 +974,8 @@ class Resource {
      *
      * @private
      */
-    _xhrOnError() {
+    _xhrOnError()
+    {
         const xhr = this.xhr;
 
         this.abort(`${reqType(xhr)} Request failed. Status: ${xhr.status}, text: "${xhr.statusText}"`);
@@ -922,7 +986,8 @@ class Resource {
      *
      * @private
      */
-    _xhrOnTimeout() {
+    _xhrOnTimeout()
+    {
         const xhr = this.xhr;
 
         this.abort(`${reqType(xhr)} Request timed out.`);
@@ -933,7 +998,8 @@ class Resource {
      *
      * @private
      */
-    _xhrOnAbort() {
+    _xhrOnAbort()
+    {
         const xhr = this.xhr;
 
         this.abort(`${reqType(xhr)} Request was aborted by the user.`);
@@ -945,55 +1011,68 @@ class Resource {
      * @private
      * @param {XMLHttpRequestLoadEvent|Event} event - Load event
      */
-    _xhrOnLoad() {
+    _xhrOnLoad()
+    {
         const xhr = this.xhr;
         let text = '';
         let status = typeof xhr.status === 'undefined' ? STATUS_OK : xhr.status; // XDR has no `.status`, assume 200.
 
         // responseText is accessible only if responseType is '' or 'text' and on older browsers
-        if (xhr.responseType === '' || xhr.responseType === 'text' || typeof xhr.responseType === 'undefined') {
+        if (xhr.responseType === '' || xhr.responseType === 'text' || typeof xhr.responseType === 'undefined')
+        {
             text = xhr.responseText;
         }
 
         // status can be 0 when using the `file://` protocol so we also check if a response is set.
         // If it has a response, we assume 200; otherwise a 0 status code with no contents is an aborted request.
-        if (status === STATUS_NONE && (text.length > 0 || xhr.responseType === Resource.XHR_RESPONSE_TYPE.BUFFER)) {
+        if (status === STATUS_NONE && (text.length > 0 || xhr.responseType === Resource.XHR_RESPONSE_TYPE.BUFFER))
+        {
             status = STATUS_OK;
         }
         // handle IE9 bug: http://stackoverflow.com/questions/10046972/msie-returns-status-code-of-1223-for-ajax-request
-        else if (status === STATUS_IE_BUG_EMPTY) {
+        else if (status === STATUS_IE_BUG_EMPTY)
+        {
             status = STATUS_EMPTY;
         }
 
         const statusType = (status / 100) | 0;
 
-        if (statusType === STATUS_TYPE_OK) {
+        if (statusType === STATUS_TYPE_OK)
+        {
             // if text, just return it
-            if (this.xhrType === Resource.XHR_RESPONSE_TYPE.TEXT) {
+            if (this.xhrType === Resource.XHR_RESPONSE_TYPE.TEXT)
+            {
                 this.data = text;
                 this.type = Resource.TYPE.TEXT;
             }
             // if json, parse into json object
-            else if (this.xhrType === Resource.XHR_RESPONSE_TYPE.JSON) {
-                try {
+            else if (this.xhrType === Resource.XHR_RESPONSE_TYPE.JSON)
+            {
+                try
+                {
                     this.data = JSON.parse(text);
                     this.type = Resource.TYPE.JSON;
                 }
-                catch (e) {
+                catch (e)
+                {
                     this.abort(`Error trying to parse loaded json: ${e}`);
 
                     return;
                 }
             }
             // if xml, parse into an xml document or div element
-            else if (this.xhrType === Resource.XHR_RESPONSE_TYPE.DOCUMENT) {
-                try {
-                    if (window.DOMParser) {
+            else if (this.xhrType === Resource.XHR_RESPONSE_TYPE.DOCUMENT)
+            {
+                try
+                {
+                    if (window.DOMParser)
+                    {
                         const domparser = new DOMParser();
 
                         this.data = domparser.parseFromString(text, 'text/xml');
                     }
-                    else {
+                    else
+                    {
                         const div = document.createElement('div');
 
                         div.innerHTML = text;
@@ -1003,18 +1082,21 @@ class Resource {
 
                     this.type = Resource.TYPE.XML;
                 }
-                catch (e) {
+                catch (e)
+                {
                     this.abort(`Error trying to parse loaded xml: ${e}`);
 
                     return;
                 }
             }
             // other types just return the response
-            else {
+            else
+            {
                 this.data = xhr.response || text;
             }
         }
-        else {
+        else
+        {
             this.abort(`[${xhr.status}] ${xhr.statusText}: ${xhr.responseURL}`);
 
             return;
@@ -1033,23 +1115,27 @@ class Resource {
      * @param {object} [loc=window.location] - The location object to test against.
      * @return {string} The crossOrigin value to use (or empty string for none).
      */
-    _determineCrossOrigin(url: string, loc?: any) {
+    _determineCrossOrigin(url: string, loc?: any)
+    {
         // data: and javascript: urls are considered same-origin
-        if (url.indexOf('data:') === 0) {
+        if (url.indexOf('data:') === 0)
+        {
             return '';
         }
 
         // A sandboxed iframe without the 'allow-same-origin' attribute will have a special
         // origin designed not to match window.location.origin, and will always require
         // crossOrigin requests regardless of whether the location matches.
-        if (window.origin !== window.location.origin) {
+        if (window.origin !== window.location.origin)
+        {
             return 'anonymous';
         }
 
         // default is window.location
         loc = loc || window.location;
 
-        if (!tempAnchor) {
+        if (!tempAnchor)
+        {
             tempAnchor = document.createElement('a');
         }
 
@@ -1063,7 +1149,8 @@ class Resource {
         const protocol = parsedUrl.protocol ? `${parsedUrl.protocol}:` : '';
 
         // if cross origin
-        if (parsedUrl.host !== loc.hostname || !samePort || protocol !== loc.protocol) {
+        if (parsedUrl.host !== loc.hostname || !samePort || protocol !== loc.protocol)
+        {
             return 'anonymous';
         }
 
@@ -1077,7 +1164,8 @@ class Resource {
      * @private
      * @return {Resource.XHR_RESPONSE_TYPE} The responseType to use.
      */
-    _determineXhrType() {
+    _determineXhrType()
+    {
         return Resource._xhrTypeMap[this.extension] || Resource.XHR_RESPONSE_TYPE.TEXT;
     }
 
@@ -1088,7 +1176,8 @@ class Resource {
      * @private
      * @return {Resource.LOAD_TYPE} The loadType to use.
      */
-    _determineLoadType() {
+    _determineLoadType()
+    {
         return Resource._loadTypeMap[this.extension] || Resource.LOAD_TYPE.XHR;
     }
 
@@ -1099,15 +1188,18 @@ class Resource {
      * @param {string} [url] - url to parse, `this.url` by default.
      * @return {string} The extension.
      */
-    _getExtension(url = this.url) {
+    _getExtension(url = this.url)
+    {
         let ext = '';
 
-        if (this.isDataUrl) {
+        if (this.isDataUrl)
+        {
             const slashIndex = url.indexOf('/');
 
             ext = url.substring(slashIndex + 1, url.indexOf(';', slashIndex));
         }
-        else {
+        else
+        {
             const queryStart = url.indexOf('?');
             const hashStart = url.indexOf('#');
             const index = Math.min(
@@ -1130,8 +1222,10 @@ class Resource {
      * @param {Resource.XHR_RESPONSE_TYPE} type - The type to get a mime type for.
      * @return {string} The mime type to use.
      */
-    _getMimeFromXhrType(type: Resource.XHR_RESPONSE_TYPE) {
-        switch (type) {
+    _getMimeFromXhrType(type: Resource.XHR_RESPONSE_TYPE)
+    {
+        switch (type)
+        {
             case Resource.XHR_RESPONSE_TYPE.BUFFER:
                 return 'application/octet-binary';
 
@@ -1153,7 +1247,7 @@ class Resource {
     }
 }
 
-module Resource {
+namespace Resource {
     /**
      * When the resource starts to load.
      *
@@ -1267,7 +1361,7 @@ module Resource {
         TEXT = 'text',
     }
 
-    export let _loadTypeMap: Dict<number> = {
+    export const _loadTypeMap: Dict<number> = {
         // images
         gif: Resource.LOAD_TYPE.IMAGE,
         png: Resource.LOAD_TYPE.IMAGE,
@@ -1291,7 +1385,7 @@ module Resource {
         webm: Resource.LOAD_TYPE.VIDEO,
     };
 
-    export let _xhrTypeMap: Dict<string> = {
+    export const _xhrTypeMap: Dict<string> = {
         // xml
         xhtml: Resource.XHR_RESPONSE_TYPE.DOCUMENT,
         html: Resource.XHR_RESPONSE_TYPE.DOCUMENT,
@@ -1329,7 +1423,7 @@ module Resource {
     };
 
     // We can't set the `src` attribute to empty string, so on abort we set it to this 1px transparent gif
-    export let EMPTY_GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
+    export const EMPTY_GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
 }
 /**
  * Quick helper to set a value on one of the extension maps. Ensures there is no
@@ -1340,12 +1434,15 @@ module Resource {
  * @param {string} extname - The extension (or key) to set.
  * @param {number} val - The value to set.
  */
-function setExtMap(map: Dict<any>, extname: string, val: number) {
-    if (extname && extname.indexOf('.') === 0) {
+function setExtMap(map: Dict<any>, extname: string, val: number)
+{
+    if (extname && extname.indexOf('.') === 0)
+    {
         extname = extname.substring(1);
     }
 
-    if (!extname) {
+    if (!extname)
+    {
         return;
     }
 
@@ -1359,7 +1456,8 @@ function setExtMap(map: Dict<any>, extname: string, val: number) {
  * @param {XMLHttpRequest|XDomainRequest} xhr - The request to check.
  * @return {string} The type.
  */
-function reqType(xhr: XMLHttpRequest) {
+function reqType(xhr: XMLHttpRequest)
+{
     return xhr.toString().replace('object ', '');
 }
 

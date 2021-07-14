@@ -2,7 +2,8 @@
  * Smaller version of the async library constructs.
  *
  */
-function _noop() { /* empty */
+function _noop()
+{ /* empty */
 }
 
 /**
@@ -14,25 +15,32 @@ function _noop() { /* empty */
  * @param {boolean} [deferNext=false] - Break synchronous each loop by calling next with a setTimeout of 1.
  */
 export function eachSeries(array: Array<any>, iterator: (x: any, next: (err?: any) => void) => void,
-                           callback?: (err?: any) => void, deferNext?: boolean): void {
+    callback?: (err?: any) => void, deferNext?: boolean): void
+{
     let i = 0;
     const len = array.length;
 
-    function next(err?: any) {
-        if (err || i === len) {
-            if (callback) {
+    function next(err?: any)
+    {
+        if (err || i === len)
+        {
+            if (callback)
+            {
                 callback(err);
             }
 
             return;
         }
 
-        if (deferNext) {
-            setTimeout(() => {
+        if (deferNext)
+        {
+            setTimeout(() =>
+            {
                 iterator(array[i++], next);
             }, 1);
         }
-        else {
+        else
+        {
             iterator(array[i++], next);
         }
     }
@@ -46,35 +54,42 @@ export function eachSeries(array: Array<any>, iterator: (x: any, next: (err?: an
  * @param {function} fn - The function to wrap.
  * @return {function} The wrapping function.
  */
-function onlyOnce(fn: Function): Function {
-    return function onceWrapper(this: any) {
-        if (fn === null) {
+function onlyOnce(fn: () => void): () => void
+{
+    return function onceWrapper(this: any, ...args: any)
+    {
+        if (fn === null)
+        {
             throw new Error('Callback was already called.');
         }
 
         const callFn = fn;
 
         fn = null;
-        callFn.apply(this, arguments);
+        callFn.apply(this, args);
     };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface IQueue {
 
 }
 
-export class Item<TaskData> {
+export class Item<TaskData>
+{
     data: TaskData;
-    callback: Function;
+    callback: (...args: any[]) => void;
 
-    constructor(data: TaskData, callback: Function) {
+    constructor(data: TaskData, callback: (...args: any[]) => void)
+    {
         this.data = data;
         this.callback = callback;
     }
 }
 
-export class AsyncQueue<TaskData> {
-    workers: number = 0;
+export class AsyncQueue<TaskData>
+{
+    workers = 0;
 
     concurrency: number;
     buffers: number;
@@ -88,16 +103,19 @@ export class AsyncQueue<TaskData> {
     started = false;
     paused = false;
 
-    private _worker: (x: TaskData, next: Function) => void;
+    private _worker: (x: TaskData, next: () => void) => void;
     _tasks: Array<Item<TaskData>> = [];
 
-    constructor(worker: (x: TaskData, next: Function) => void, concurrency?: number) {
+    constructor(worker: (x: TaskData, next: () => void) => void, concurrency?: number)
+    {
         this._worker = worker;
 
-        if (concurrency == null) { // eslint-disable-line no-eq-null,eqeqeq
+        if (concurrency == null)
+        { // eslint-disable-line no-eq-null,eqeqeq
             concurrency = 1;
         }
-        else if (concurrency === 0) {
+        else if (concurrency === 0)
+        {
             throw new Error('Concurrency must not be zero');
         }
 
@@ -105,16 +123,20 @@ export class AsyncQueue<TaskData> {
         this.buffers = concurrency >> 2;
     }
 
-    private _insert = (data: any, insertAtFront: boolean, callback?: Function) => {
-        if (callback != null && typeof callback !== 'function') { // eslint-disable-line no-eq-null,eqeqeq
+    private _insert = (data: any, insertAtFront: boolean, callback?: () => void) =>
+    {
+        if (callback != null && typeof callback !== 'function')
+        { // eslint-disable-line no-eq-null,eqeqeq
             throw new Error('task callback must be a function');
         }
 
         this.started = true;
 
-        if (data == null && this.idle()) { // eslint-disable-line no-eq-null,eqeqeq
+        if (data == null && this.idle())
+        { // eslint-disable-line no-eq-null,eqeqeq
             // call drain immediately if there are no tasks
             setTimeout(() => this.drain(), 1);
+
             return;
         }
 
@@ -123,27 +145,33 @@ export class AsyncQueue<TaskData> {
             typeof callback === 'function' ? callback : _noop
         );
 
-        if (insertAtFront) {
+        if (insertAtFront)
+        {
             this._tasks.unshift(item);
         }
-        else {
+        else
+        {
             this._tasks.push(item);
         }
 
         setTimeout(this.process, 1);
     };
 
-    process = () => {
-        while (!this.paused && this.workers < this.concurrency && this._tasks.length) {
+    process = () =>
+    {
+        while (!this.paused && this.workers < this.concurrency && this._tasks.length)
+        {
             const task = this._tasks.shift();
 
-            if (this._tasks.length === 0) {
+            if (this._tasks.length === 0)
+            {
                 this.empty();
             }
 
             this.workers += 1;
 
-            if (this.workers === this.concurrency) {
+            if (this.workers === this.concurrency)
+            {
                 this.saturated();
             }
 
@@ -151,68 +179,82 @@ export class AsyncQueue<TaskData> {
         }
     };
 
-    _next(task: Item<TaskData>) {
-        const q = this;
-        return function next() {
-            q.workers -= 1;
+    _next(task: Item<TaskData>)
+    {
+        return (...args: any) =>
+        {
+            this.workers -= 1;
 
-            task.callback.apply(task, arguments);
+            task.callback(...args);
 
-            if (arguments[0] != null) { // eslint-disable-line no-eq-null,eqeqeq
-                q.error(arguments[0], task.data);
+            if (args[0] != null)
+            { // eslint-disable-line no-eq-null,eqeqeq
+                this.error(args[0], task.data);
             }
 
-            if (q.workers <= (q.concurrency - q.buffers)) {
-                q.unsaturated();
+            if (this.workers <= (this.concurrency - this.buffers))
+            {
+                this.unsaturated();
             }
 
-            if (q.idle()) {
-                q.drain();
+            if (this.idle())
+            {
+                this.drain();
             }
 
-            q.process();
+            this.process();
         };
-    };
+    }
 
-    //That was in object
+    // That was in object
 
-    push(data: any, callback?: Function) {
+    push(data: any, callback?: (...args: any[]) => void)
+    {
         this._insert(data, false, callback);
     }
 
-    kill() {
+    kill()
+    {
         this.workers = 0;
         this.drain = _noop;
         this.started = false;
         this._tasks = [];
     }
 
-    unshift(data: any, callback?: Function) {
+    unshift(data: any, callback?: (...args: any[]) => void)
+    {
         this._insert(data, true, callback);
     }
 
-    length() {
+    length()
+    {
         return this._tasks.length;
     }
 
-    running() {
+    running()
+    {
         return this.workers;
     }
 
-    idle() {
+    idle()
+    {
         return this._tasks.length + this.workers === 0;
     }
 
-    pause() {
-        if (this.paused === true) {
+    pause()
+    {
+        if (this.paused === true)
+        {
             return;
         }
 
         this.paused = true;
     }
 
-    resume() {
-        if (this.paused === false) {
+    resume()
+    {
+        if (this.paused === false)
+        {
             return;
         }
 
@@ -220,7 +262,8 @@ export class AsyncQueue<TaskData> {
 
         // Need to call this.process once per concurrent
         // worker to preserve full concurrency after pause
-        for (let w = 1; w <= this.concurrency; w++) {
+        for (let w = 1; w <= this.concurrency; w++)
+        {
             this.process();
         }
     }
@@ -233,6 +276,7 @@ export class AsyncQueue<TaskData> {
  * @param {number} concurrency - How many workers to run in parrallel.
  * @return {*} The async queue object.
  */
-export function queue(worker: (x: any, next: Function) => void, concurrency?: number) {
+export function queue(worker: (x: any, next: () => void) => void, concurrency?: number)
+{
     return new AsyncQueue<any>(worker, concurrency);
 }

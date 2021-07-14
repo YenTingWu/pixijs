@@ -4,10 +4,11 @@
  * @param [opts] options
  * @param {boolean} [opts.strictMode] type of parser
  */
-export function parseUri(str: string, opts: { strictMode?: boolean }): any {
+export function parseUri(str: string, opts: { strictMode?: boolean }): any
+{
     opts = opts || {};
 
-    let o = {
+    const o = {
         key: ['source', 'protocol', 'authority', 'userInfo', 'user', 'password', 'host', 'port', 'relative', 'path', 'directory', 'file', 'query', 'anchor'],
         q: {
             name: 'queryKey',
@@ -19,7 +20,7 @@ export function parseUri(str: string, opts: { strictMode?: boolean }): any {
         }
     };
 
-    const m = o.parser[opts.strictMode ? 'strict' : 'loose'].exec(str)
+    const m = o.parser[opts.strictMode ? 'strict' : 'loose'].exec(str);
     const uri: any = {};
     let i = 14;
 
@@ -27,8 +28,9 @@ export function parseUri(str: string, opts: { strictMode?: boolean }): any {
 
     uri[o.q.name] = {};
     // @ts-ignore
-    uri[o.key[12]].replace(o.q.parser, function (t0: any, t1: any, t2: any) {
-        if (t1) uri[o.q.name][t1] = t2
+    uri[o.key[12]].replace(o.q.parser, function (t0: any, t1: any, t2: any)
+    {
+        if (t1) uri[o.q.name][t1] = t2;
     });
 
     return uri;
